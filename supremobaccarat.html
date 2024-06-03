@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Baccarat Game</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+    .container {
+      text-align: center;
+    }
+    .hand {
+      display: inline-block;
+      vertical-align: top;
+      margin: 0 20px;
+    }
+    .cards {
+      border: 1px solid #333;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    .card {
+      display: inline-block;
+      width: 50px;
+      height: 80px;
+      border: 1px solid #666;
+      background-color: #fff;
+      margin-right: 5px;
+      text-align: center;
+      line-height: 80px;
+    }
+    .button-container {
+      margin-top: 20px;
+    }
+    .button-container button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    #player-btn {
+      background-color: blue;
+      color: white;
+    }
+    #draw-btn {
+      background-color: green;
+      color: white;
+    }
+    #banker-btn {
+      background-color: red;
+      color: white;
+    }
+    .total {
+      font-size: 14px;
+      margin-top: 5px;
+    }
+    .results {
+      margin-top: 20px;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="hand" id="player-hand">
+      <h2>Player Hand</h2>
+      <div class="cards" id="player-cards"></div>
+      <div class="total" id="player-total">Total: 0</div>
+    </div>
+    <div class="hand" id="banker-hand">
+      <h2>Banker Hand</h2>
+      <div class="cards" id="banker-cards"></div>
+      <div class="total" id="banker-total">Total: 0</div>
+    </div>
+    <div class="button-container">
+      <button id="player-btn" onclick="chooseOption('player')">Player</button>
+      <button id="draw-btn" onclick="chooseOption('draw')">Draw</button>
+      <button id="banker-btn" onclick="chooseOption('banker')">Banker</button>
+    </div>
+    <div id="result"></div>
+    <div id="timer"></div>
+    <button id="start-btn" onclick="startGame()">Start</button>
+    <button id="pause-btn" onclick="pauseGame()">Pause</button>
+    <div class="results" id="results"></div>
+  </div>
+
+  <script>
+    let timer;
+    let selectedOption = '';
+    let timerRunning = false;
+    let results = [];
+
+    function chooseOption(option) {
+      selectedOption = option;
+      clearInterval(timer);
+      if (timerRunning) {
+        dealCards();
+      } else {
+        startTimer();
+      }
+    }
+
+    function dealCards() {
+      // Disable buttons
+      document.getElementById('player-btn').disabled = true;
+      document.getElementById('draw-btn').disabled = true;
+      document.getElementById('banker-btn').disabled = true;
+
+      // Clear previous cards
+      document.getElementById('player-cards').innerHTML = '';
+      document.getElementById('banker-cards').innerHTML = '';
+      document.getElementById('result').innerHTML = '';
+
+      // Deal initial cards
+      dealCard('player');
+      dealCard('player');
+      dealCard('banker');
+      dealCard('banker');
+
+      // Update totals
+      updateTotal('player');
+      updateTotal('banker');
+
+      // Draw third card if necessary
+      drawThirdCard();
+
+      // Update totals again after potential third card
+      updateTotal('player');
+      updateTotal('banker');
+
+      // Check for winner
+      checkWinner();
+
+      // Reset timer
+      startTimer();
+
+      // Update results
+      updateResults();
+    }
+
+    function dealCard(hand) {
+      const card = document.createElement('div');
+      card.classList.add('card');
+      card.textContent = getRandomCard();
+      document.getElementById(`${hand}-cards`).appendChild(card);
+    }
+
+    function getRandomCard() {
+      const cards = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+      return cards[Math.floor(Math.random() * cards.length)];
+    }
+
+    function updateTotal(hand) {
+      const cards = document.getElementById(`${hand}-cards`).querySelectorAll('.card');
+      let total = 0;
+
+      for (let i = 0; i < cards.length; i++) {
+        const cardValue = cards[i].textContent;
+
+        if (cardValue === 'A') {
+          total += 1;
+        } else if (cardValue === 'J' || cardValue === 'Q' || cardValue === 'K') {
+          total += 0;
+        } else {
+          total += parseInt(cardValue);
+        }
+      }
+
+      document.getElementById(`${hand}-total`).textContent = `Total: ${total % 10}`;
+    }
+
+    function drawThirdCard() {
+      const playerTotal = parseInt(document.getElementById('player-total').textContent.split(":")[1].trim());
+      const bankerTotal = parseInt(document.getElementById('banker-total').textContent.split(":")[1].trim());
+
+      let playerThirdCard = null;
+      let bankerThirdCard = null;
+
+      // Player draws a third card if total is 5 or less
+      if (playerTotal <= 5) {
+        playerThirdCard = getRandomCard();
+        const playerCardElement = document.createElement('div');
+        playerCardElement.classList.add('card');
+        playerCardElement.textContent = playerThirdCard;
+        document.getElementById('player-cards').appendChild(playerCardElement);
+      }
+
+      // Banker's rules for drawing a third card
+      const playerThirdCardValue = (playerThirdCard === 'A') ? 1 : (['J', 'Q', 'K'].includes(playerThirdCard) ? 0 : parseInt(playerThirdCard));
+
+      if (bankerTotal <= 2 ||
+          (bankerTotal === 3 && playerThirdCardValue !== 8) ||
+          (bankerTotal === 4 && [2, 3, 4, 5, 6, 7].includes(playerThirdCardValue)) ||
+          (bankerTotal === 5 && [4, 5, 6, 7].includes(playerThirdCardValue)) ||
+          (bankerTotal === 6 && [6, 7].includes(playerThirdCardValue))) {
+        bankerThirdCard = getRandomCard();
+        const bankerCardElement = document.createElement('div');
+        bankerCardElement.classList.add('card');
+        bankerCardElement.textContent = bankerThirdCard;
+        document.getElementById('banker-cards').appendChild(bankerCardElement);
+      } else if (bankerTotal <= 5 && playerThirdCard === null) {
+        bankerThirdCard = getRandomCard();
+        const bankerCardElement = document.createElement('div');
+        bankerCardElement.classList.add('card');
+        bankerCardElement.textContent = bankerThirdCard;
+        document.getElementById('banker-cards').appendChild(bankerCardElement);
+      }
+    }
+
+    function checkWinner() {
+      const playerScore = parseInt(document.getElementById('player-total').textContent.split(":")[1].trim());
+      const bankerScore = parseInt(document.getElementById('banker-total').textContent.split(":")[1].trim());
+
+      let result = '';
+
+      if (playerScore > bankerScore) {
+        result = 'Player wins!';
+      } else if (playerScore < bankerScore) {
+        result = 'Banker wins!';
+      } else {
+        result = 'It\'s a tie!';
+      }
+
+      document.getElementById('result').textContent = result;
+
+      // Save result to history
+      results.unshift(result);
+      if (results.length > 15) {
+        results.pop();
+      }
+
+      // Enable buttons after result is displayed
+      setTimeout(() => {
+        document.getElementById('player-btn').disabled = false;
+        document.getElementById('draw-btn').disabled = false;
+        document.getElementById('banker-btn').disabled = false;
+      }, 1000);
+    }
+
+    function startTimer() {
+      let timeLeft = 11;
+      timerRunning = true;
+      timer = setInterval(() => {
+        document.getElementById('timer').textContent = `Time left: ${timeLeft} seconds`;
+        timeLeft--;
+
+        if (timeLeft < 0) {
+          clearInterval(timer);
+          document.getElementById('timer').textContent = 'Time\'s up!';
+          dealCards();
+          timerRunning = false;
+        }
+      }, 1000);
+    }
+
+    function startGame() {
+      if (!timerRunning) {
+        startTimer();
+      }
+    }
+
+    function pauseGame() {
+      clearInterval(timer);
+      timerRunning = false;
+    }
+
+    function updateResults() {
+      const resultsContainer = document.getElementById('results');
+      resultsContainer.innerHTML = '';
+      const ul = document.createElement('ul');
+      results.forEach(result => {
+        const li = document.createElement('li');
+        li.textContent = result;
+        ul.appendChild(li);
+      });
+      resultsContainer.appendChild(ul);
+    }
+  </script>
+</body>
+</html>
